@@ -43,6 +43,8 @@ if [ "${cl_not_ok}" ]; then
   exit 2
 fi
 
+head -32 CHANGELOG.md | tail -13
+
 echo "Clean up assets before we start"
 FPHS_LOAD_APP_TYPES=1 bundle exec rake assets:clobber
 git commit public/assets -m "Cleanup"
@@ -87,24 +89,28 @@ if [ -z "${SKIP_BRAKEMAN}" ]; then
   fi
 fi
 
-if [ -z "${RELEASESTARTED}" ]; then
-  echo "Starting git-flow release"
-  git flow release start ${NEWVER}
-  RES=$?
-  if [ "$RES" != "0" ]; then
-    echo $RES
-    exit
-  fi
-  git push --set-upstream origin release/${NEWVER}
-  git flow release finish -m 'Release' ${NEWVER}
-else
+RELNUM=$(git flow release)
+if [ "${RELNUM}" ]; then
   echo "Release already started. Checking out and continuing"
-  git checkout new-master && git pull && git merge ${FROM_BRANCH}
+  git flow release delete -f ${RELNUM}
 fi
+echo "Starting git-flow release"
+git checkout new-master && git pull
+git checkout ${FROM_BRANCH}
+git flow release start ${NEWVER}
+RES=$?
+if [ "$RES" != "0" ]; then
+  echo $RES
+  exit
+fi
+git push --set-upstream origin release/${NEWVER}
+git flow release finish -m 'Release' ${NEWVER}
 git push origin --tags
 git push origin --all
 
 git checkout ${FROM_BRANCH}
+
+head -32 CHANGELOG.md | tail -13
 
 echo "Starting build container"
 cd ../restructure-build

@@ -4,6 +4,20 @@ def put_now(msg)
   puts "#{Time.now} #{msg}"
 end
 
+# Provide a method to change app settings without a warning
+def change_setting(name, value)
+  silence_warnings { Settings.const_set(name, value) }
+end
+
+# Expectation / Matcher to handle the default matcher in routes when no route is actually matched
+# We can not use expect(...).not_to be_routable since everything is matched
+def expect_to_be_bad_route(for_request)
+  method = for_request.first.first
+  path = for_request.first.last
+  path = path.split('/').select(&:present?).join('/')
+  expect(for_request).to route_to(controller: 'bad_route', action: 'not_routed', path: path)
+end
+
 put_now 'Starting rspec'
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 ENV['RAILS_ENV'] ||= 'test'
@@ -103,12 +117,14 @@ unless ENV['SKIP_DB_SETUP']
   raise 'Scantron not defined by seeds' unless defined?(Scantron) && defined?(ScantronsController)
 end
 
-put_now 'Filestore mount'
-res = `#{::Rails.root}/app-scripts/setup-dev-filestore.sh`
-if res != "mountpoint OK\n"
-  put_now res
-  put_now 'Run app-scripts/setup-dev-filestore.sh and try again'
-  exit
+unless ENV['SKIP_FS_SETUP']
+  put_now 'Filestore mount'
+  res = `#{::Rails.root}/app-scripts/setup-dev-filestore.sh`
+  if res != "mountpoint OK\n"
+    put_now res
+    put_now 'Run app-scripts/setup-dev-filestore.sh and try again'
+    exit
+  end
 end
 
 put_now 'Require more'
